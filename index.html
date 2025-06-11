@@ -190,13 +190,14 @@
         document.getElementById('darkModeToggle').checked = true;
       }
       // fetch, filter, sort
-      let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+      let allTasks = JSON.parse(localStorage.getItem('tasks')) || [];
       const search = document.getElementById('searchInput').value.toLowerCase();
       const catFilter = document.getElementById('categoryFilter').value;
       const sortBy = document.getElementById('sortBy').value;
+      let tasks = allTasks.slice();
 
       // build category list
-      const cats = Array.from(new Set(tasks.map(t=>t.category).filter(Boolean)));
+      const cats = Array.from(new Set(allTasks.map(t=>t.category).filter(Boolean)));
       const catSel = document.getElementById('categoryFilter');
       catSel.innerHTML = '<option value="">All Categories</option>';
       cats.forEach(c=>{
@@ -269,7 +270,7 @@
       document.getElementById('summary').textContent =
         `Total: ${total}  •  Todo: ${total-done}  •  Completed: ${done}`;
 
-      checkReminders(tasks);
+      checkReminders(allTasks);
     }
 
     function addTask() {
