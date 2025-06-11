@@ -3,83 +3,136 @@
 <head>
   <meta charset="UTF-8">
   <title>Ultra To-Do List</title>
-  <style>
-    :root {
-      --bg: #ffffff;
-      --text: #000000;
-      --card: #f0f0f0;
-    }
-    body.dark {
-      --bg: #121212;
-      --text: #ffffff;
-      --card: #1e1e1e;
-    }
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: Arial, sans-serif;
-      max-width: 800px;
-      margin: auto;
-      padding: 20px;
-      transition: background 0.3s, color 0.3s;
-    }
-    input, button, select {
-      padding: 5px;
-      margin: 5px 0;
-      background: var(--card);
-      color: var(--text);
-      border: 1px solid #ccc;
-      border-radius: 3px;
-    }
-    .top-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-    .dark-toggle {
-      margin-left: auto;
-      cursor: pointer;
-    }
-    #summary {
-      margin: 10px 0;
-      font-weight: bold;
-    }
-    .filter-row {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    ul { list-style: none; padding: 0; }
-    li {
-      background: var(--card);
-      padding: 10px;
-      margin-bottom: 10px;
-      display: flex;
-      flex-direction: column;
-      border-radius: 5px;
-      position: relative;
-    }
-    li.overdue { border: 2px solid red; }
-    .completed span {
-      text-decoration: line-through;
-      color: gray;
-    }
-    .task-controls {
-      margin-top: 6px;
-    }
-    .task-controls button {
-      margin-right: 5px;
-    }
-    .task-meta {
-      font-size: 0.85em;
-      color: #888;
-      margin-top: 4px;
-    }
-    .high { color: red; font-weight: bold; }
-    .medium { color: orange; }
-    .low { color: green; }
-  </style>
+<style>
+  /* ────────────────────────────────────────────────────────────────────────── */
+  /*  Catppuccin Macchiato – Default (dark)                                  */
+  /* ────────────────────────────────────────────────────────────────────────── */
+  :root {
+    --bg:    #24273A;  /* surface1 */
+    --card:  #1E2030;  /* surface0 */
+    --text:  #CAD3F5;  /* text */
+    --subtle:#8B91A0;  /* overlay1 */
+    --border:#5B6078;  /* overlay0 */
+    --accent:#8AADF4;  /* blue */
+    --red:   #ED8796;
+    --yellow:#EED49F;
+    --green: #A6DA95;
+  }
+
+  body.light {
+    /* Light mode override when toggled */
+    --bg:    #ffffff;
+    --card:  #f0f0f0;
+    --text:  #000000;
+    --subtle:#555555;
+    --border:#cccccc;
+    --accent:#8aadf4;
+    --red:   #e05c6b;
+    --yellow:#dc9d3c;
+    --green: #40a02b;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: auto;
+    padding: 20px;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  input, button, select {
+    padding: 5px;
+    margin: 5px 0;
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    transition: background 0.3s, color 0.3s, border-color 0.3s;
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(138,173,244,0.3);
+  }
+
+  .top-controls {
+    display: flex;
+    align-items: center;
+  }
+  .dark-toggle {
+    margin-left: auto;
+    cursor: pointer;
+  }
+
+  #summary {
+    margin: 10px 0;
+    font-weight: bold;
+    color: var(--subtle);
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  ul { list-style: none; padding: 0; }
+
+  li {
+    background: var(--card);
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    position: relative;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  li.overdue {
+    border-color: var(--red);
+  }
+  .completed span {
+    text-decoration: line-through;
+    color: var(--subtle);
+  }
+
+  .task-controls {
+    margin-top: 6px;
+  }
+  .task-controls button {
+    margin-right: 5px;
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .task-controls button:hover {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+
+  .task-meta {
+    font-size: 0.85em;
+    color: var(--subtle);
+    margin-top: 4px;
+  }
+
+  .high {
+    color: var(--red);
+    font-weight: bold;
+  }
+  .medium {
+    color: var(--yellow);
+  }
+  .low {
+    color: var(--green);
+  }
+</style>
+
+
 </head>
 <body>
 
@@ -128,11 +181,14 @@
     let draggedIndex = null;
 
     function toggleDarkMode() {
-      document.body.classList.toggle('dark');
-      localStorage.setItem('darkMode', document.body.classList.contains('dark'));
+      document.body.classList.toggle('light');
+      localStorage.setItem('lightMode', document.body.classList.contains('light'));
     }
-
     function loadTasks() {
+      if (localStorage.getItem('lightMode') === 'true') {
+        document.body.classList.add('light');
+        document.getElementById('darkModeToggle').checked = true;
+      }
       // fetch, filter, sort
       let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
       const search = document.getElementById('searchInput').value.toLowerCase();
