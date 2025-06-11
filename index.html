@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ultra To-Do List</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #000000;
+      --card: #f0f0f0;
+    }
+
+    body.dark {
+      --bg: #121212;
+      --text: #ffffff;
+      --card: #1e1e1e;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    input, button, select {
+      padding: 5px;
+      margin: 5px 0;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid #ccc;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      background: var(--card);
+      padding: 10px;
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      border-radius: 5px;
+      cursor: grab;
+    }
+
+    .completed span {
+      text-decoration: line-through;
+      color: gray;
+    }
+
+    .task-controls button {
+      margin-left: 5px;
+    }
+
+    .task-meta {
+      font-size: 0.85em;
+      color: #888;
+    }
+
+    .high { color: red; font-weight: bold; }
+    .medium { color: orange; }
+    .low { color: green; }
+
+    .top-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .dark-toggle {
+      margin-left: auto;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-controls">
+    <h2>Ultra To-Do List</h2>
+    <label class="dark-toggle">
+      <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()"> 🌙
+    </label>
+  </div>
+
+  <input type="text" id="taskInput" placeholder="Task description" />
+  <input type="date" id="dueDate" />
+  <input type="text" id="categoryInput" placeholder="Category/tag" />
+  <select id="prioritySelect">
+    <option value="">Priority</option>
+    <option value="High">High</option>
+    <option value="Medium">Medium</option>
+    <option value="Low">Low</option>
+  </select>
+  <button onclick="addTask()">Add Task</button>
+
+  <br><br>
+
+  <input type="text" id="searchInput" placeholder="Search tasks..." oninput="loadTasks()" />
+  <select id="sortBy" onchange="loadTasks()">
+    <option value="">Sort by</option>
+    <option value="due">Due Date</option>
+    <option value="priority">Priority</option>
+  </select>
+
+  <button onclick="exportTasks()">Export</button>
+  <input type="file" id="importFile" onchange="importTasks(event)" />
+
+  <h3>To-Do</h3>
+  <ul id="todoList" ondragover="allowDrop(event)" ondrop="drop(event, 'todo')"></ul>
+
+  <h3>Completed</h3>
+  <ul id="completedList" ondragover="allowDrop(event)" ondrop="drop(event, 'completed')"></ul>
+
+  <script>
+    let draggedIndex = null;
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('darkMode', document.body.classList.contains('dark'));
+    }
+
+    function loadTasks() {
+      let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const sortBy = document.getElementById('sortBy').value;
+
+      if (search) {
+        tasks = tasks.filter(t =>
+          t.value.toLowerCase().includes(search) ||
+          (t.category || '').toLowerCase().includes(search)
+        );
+      }
+
+      if (sortBy === 'due') {
+        tasks.sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
+      } else if (sortBy === 'priority') {
+        const order = { High: 1, Medium: 2, Low: 3 };
+        tasks.sort((a, b) => (order[a.priority] || 4) - (order[b.priority] || 4));
+      }
+
+      const todoList = document.getElementById('todoList');
+      const completedList = document.getElementById('completedList');
+      todoList.innerHTML = '';
+      completedList.innerHTML = '';
+
+      tasks.forEach((task, index) => {
+        const li = document.createElement('li');
+        li.setAttribute('draggable', true);
+        li.ondragstart = () => draggedIndex = index;
+
+        const span = document.createElement('span');
+        span.textContent = task.value;
+
+        const meta = document.createElement('div');
+        meta.className = 'task-meta';
+        if (task.dueDate || task.priority || task.category) {
+          meta.innerHTML = `
+            ${task.dueDate ? '📅 ' + task.dueDate : ''}
+            ${task.priority ? ` | 🔥 <span class="${task.priority.toLowerCase()}">${task.priority}</span>` : ''}
+            ${task.category ? ` | 🏷️ ${task.category}` : ''}
+          `;
+        }
+
+        const controls = document.createElement('div');
+        controls.className = 'task-controls';
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✎';
+        editBtn.onclick = () => editTask(index);
+        controls.appendChild(editBtn);
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.textContent = task.type === 'todo' ? '✓' : '↺';
+        toggleBtn.onclick = () => toggleTaskType(index);
+        controls.appendChild(toggleBtn);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '✗';
+        deleteBtn.onclick = () => deleteTask(index);
+        controls.appendChild(deleteBtn);
+
+        if (task.type === 'completed') {
+          span.classList.add('completed');
+        }
+
+        li.appendChild(span);
+        li.appendChild(meta);
+        li.appendChild(controls);
+
+        (task.type === 'todo' ? todoList : completedList).appendChild(li);
+      });
+
+      checkReminders(tasks);
+    }
+
+    function addTask() {
+      const value = document.getElementById('taskInput').value.trim();
+      const dueDate = document.getElementById('dueDate').value;
+      const category = document.getElementById('categoryInput').value.trim();
+      const priority = document.getElementById('prioritySelect').value;
+
+      if (!value) return;
+
+      const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+      tasks.push({ type: 'todo', value, dueDate, category, priority });
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+
+      document.getElementById('taskInput').value = '';
+      document.getElementById('dueDate').value = '';
+      document.getElementById('categoryInput').value = '';
+      document.getElementById('prioritySelect').value = '';
+
+      loadTasks();
+    }
+
+    function editTask(index) {
+      const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+      const current = tasks[index];
+      const newValue = prompt("Edit task:", current.value);
+      if (newValue) {
+        tasks[index].value = newValue;
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        loadTasks();
+      }
+    }
+
+    function toggleTaskType(index) {
+      const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+      tasks[index].type = tasks[index].type === 'todo' ? 'completed' : 'todo';
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      loadTasks();
+    }
+
+    function deleteTask(index) {
+      const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+      if (confirm("Delete this task?")) {
+        tasks.splice(index, 1);
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        loadTasks();
+      }
+    }
+
+    function exportTasks() {
+      const data = localStorage.getItem('tasks');
+      if (!data) return alert("Nothing to export.");
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'tasks.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importTasks(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const tasks = JSON.parse(e.target.result);
+          if (Array.isArray(tasks)) {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            loadTasks();
+          } else {
+            alert("Invalid format.");
+          }
+        } catch {
+          alert("Failed to import.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function allowDrop(event) {
+      event.preventDefault();
+    }
+
+    function drop(event, listType) {
+      const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+      if (draggedIndex !== null) {
+        const draggedTask = tasks.splice(draggedIndex, 1)[0];
+        draggedTask.type = listType;
+        tasks.push(draggedTask);
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        draggedIndex = null;
+        loadTasks();
+      }
+    }
+
+    function checkReminders(tasks) {
+      const today = new Date().toISOString().split("T")[0];
+      tasks.forEach(task => {
+        if (task.type === 'todo' && task.dueDate === today && !task.reminded) {
+          alert(`Reminder: "${task.value}" is due today!`);
+          task.reminded = true;
+        }
+      });
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    // Init
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.body.classList.add('dark');
+      document.getElementById('darkModeToggle').checked = true;
+    }
+
+    loadTasks();
+  </script>
+
+</body>
+</html>
